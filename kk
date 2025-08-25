@@ -3,7 +3,7 @@
 # kk - A CLI tool to browse and manage secrets in GNOME Keyring
 # Usage: kk [command] [options]
 
-VERSION="1.0.1"  # Updated version
+VERSION="1.1.0"  # Added remove command
 
 # Function to display help
 show_help() {
@@ -17,6 +17,7 @@ Commands:
   list              List all secrets (with masked values)
   search <attr> <value>  Search for secrets by attribute
   get <service> <username>   Retrieve a full secret (requires confirmation)
+  remove <service> <username>  Remove a secret (requires confirmation)
   --help            Show this help message
   --version         Show version information
 
@@ -24,6 +25,7 @@ Examples:
   kk list
   kk search service binance
   kk get binance trader1
+  kk remove binance trader1
 
 For agentic CLI tools:
   The list and search commands show masked secrets (first 70% visible)
@@ -245,6 +247,55 @@ get_secret() {
     echo "Username: $username"
     echo "Label: $label"
     echo "Secret: $secret"
+}
+
+# Function to remove a secret
+remove_secret() {
+    local service="$1"
+    local username="$2"
+    
+    if [ -z "$service" ] || [ -z "$username" ]; then
+        echo "Error: Both service and username must be specified"
+        echo "Usage: kk remove <service> <username>"
+        exit 1
+    fi
+    
+    # Check if the secret exists
+    local secret=$(secret-tool lookup service "$service" username "$username" 2>/dev/null)
+    
+    if [ -z "$secret" ]; then
+        echo "No secret found for service '$service' and username '$username'"
+        exit 1
+    fi
+    
+    # Find the label for this secret
+    local output=$(secret-tool search service "$service" username "$username" 2>&1)
+    local exit_code=$?
+    
+    if [ $exit_code -ne 0 ]; then
+        echo "Error: Failed to access GNOME Keyring"
+        exit 1
+    fi
+    
+    # Extract the label
+    local label=$(echo "$output" | grep "^label " | sed 's/label *= *//' | head -n 1)
+    if [ -z "$label" ]; then
+        label="Unknown"
+    fi
+    
+    # Confirm before removing secret
+    echo "Remove secret '$label' for service '$service' and username '$username'? Type 'yes' to confirm:"
+    read -r response
+    
+    if [ "$response" != "yes" ]; then
+        echo "Operation cancelled."
+        exit 0
+    fi
+    
+    # Use secret-tool clear to remove the secret
+    secret-tool clear service "$service" username "$username"
+    
+    echo "Secret removed successfully."
 }
 
 # Function to list common secrets
@@ -491,6 +542,9 @@ main() {
             ;;
         get)
             get_secret "$2" "$3"
+            ;;
+        remove)
+            remove_secret "$2" "$3"
             ;;
         "")
             show_help
