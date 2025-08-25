@@ -13,3 +13,12 @@ dependencies = [
 
 [project.scripts]
 kk = "kkcli.__main__:main"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+# Explicitly include only our application package to avoid flat-layout
+# auto-discovery picking up unrelated top-level dirs (e.g., `data/`).
+include = ["kkcli*"]
+exclude = ["tests*", "test*", "docs*", "data*"]
