@@ -72,6 +72,10 @@ def _find_item(store: Store, service: str, username: str):
     return None
 
 
+def has_item(store: Store, service: str, username: str) -> bool:
+    return _find_item(store, service, username) is not None
+
+
 def put(store: Store, service: str, username: str, secret: str, attrs: Optional[Dict[str, str]] = None) -> None:
     label = f"{service}/{username}"
     a = _attrs_for(store.namespace, service, username, attrs)

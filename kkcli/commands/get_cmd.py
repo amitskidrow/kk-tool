@@ -5,9 +5,8 @@ from ..storage import open_store, get as get_item
 
 
 def register(subparsers):
-    p = subparsers.add_parser("get", help="Get full secret (confirm)")
+    p = subparsers.add_parser("get", help="Get full secret")
     p.add_argument("name", help="service/username")
-    p.add_argument("--no-confirm", action="store_true")
     p.set_defaults(func=run)
 
 
@@ -16,14 +15,8 @@ def run(args):
     print(f"[{cfg.context_header}]")
     svc, usr = parse_name(args.name)
     store = open_store(cfg.namespace, cfg.store_mode)
-    if not args.no_confirm:
-        print(f"Show full secret for '{svc}/{usr}'? Type 'yes' to confirm:")
-        if sys.stdin.readline().strip() != "yes":
-            print("Operation cancelled.")
-            return
     val = get_item(store, svc, usr)
     if val is None:
         print("Not found", file=sys.stderr)
         sys.exit(1)
     print(val)
-

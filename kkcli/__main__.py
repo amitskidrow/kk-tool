@@ -10,7 +10,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = p.add_subparsers(dest="cmd")
 
     # Register subcommands
-    from .commands import list_cmd, search_cmd, get_cmd, set_cmd, remove_cmd, ingest_cmd, export_cmd, migrate_cmd, doctor_cmd
+    from .commands import list_cmd, search_cmd, get_cmd, set_cmd, remove_cmd, ingest_cmd, export_cmd, migrate_cmd, doctor_cmd, clean_cmd
     list_cmd.register(sp)
     search_cmd.register(sp)
     get_cmd.register(sp)
@@ -20,6 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_cmd.register(sp)
     migrate_cmd.register(sp)
     doctor_cmd.register(sp)
+    clean_cmd.register(sp)
 
     # Global options via env/config; kept minimal in CLI
     p.add_argument("--ns", dest="namespace", default=None, help="Override namespace")

@@ -1,13 +1,15 @@
 from pathlib import Path
 from ..config import load_config
 from ..envparse import parse_env_file, extract_service_name
-from ..storage import open_store, put
+from ..storage import open_store, put, has_item
 
 
 def register(subparsers):
-    p = subparsers.add_parser("ingest", help="Ingest .env files into the namespace store")
+    p = subparsers.add_parser(
+        "ingest",
+        help="Ingest dot-env files (.*.env) from a directory, recursively",
+    )
     p.add_argument("directory", nargs="?", default=".")
-    p.add_argument("--env", dest="env", default=None)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=run)
 
@@ -19,34 +21,53 @@ def run(args):
     if not base.exists() or not base.is_dir():
         print(f"Error: {args.directory} is not a directory")
         return
-    env_files = list({*base.glob("*.env"), *base.glob(".*.env")})
+    # Recursive scan; only consider dot-notation .env files: .<name>.env
+    env_files = [p for p in base.rglob("*.env") if p.name.startswith(".")]
     if not env_files:
         print("No .env files found")
         return
-    def derive_env(p: Path) -> str:
-        if args.env:
-            return args.env
-        name = p.parent.name.lower()
-        return name if name in {"prod","production","dev","test","staging"} else cfg.default_env
-
     store = open_store(cfg.namespace, cfg.store_mode)
-    print(f"Found {len(env_files)} .env files:")
+    print(f"Found {len(env_files)} dot-env file(s):")
+
+    rows = []  # Collect summary rows
     for file in sorted(env_files):
         service = extract_service_name(file.name)
-        env_tag = derive_env(file)
+        env_tag = cfg.default_env
         secrets = parse_env_file(file)
         if not secrets:
-            print(f"- {file.name}: no secrets")
+            rows.append({"name": str(file), "action": "skip", "env": env_tag, "msg": "no secrets"})
             continue
-        print(f"- {file.name}: service='{service}', {len(secrets)} item(s)")
         for key, value in secrets.items():
             label = f"{service}/{key}"
             attrs = {"service": service, "username": key, "env": env_tag, "source": "ingest"}
             if args.dry_run:
-                print(f"  DRY: create [{label}] env={env_tag}")
-            else:
-                try:
-                    put(store, service, key, value, attrs)
-                    print(f"  OK:  {label}")
-                except Exception as e:
-                    print(f"  ERR: {label}: {e}")
+                action = "create" if not has_item(store, service, key) else "update"
+                rows.append({"name": label, "action": f"DRY-{action}", "env": env_tag, "msg": ""})
+                continue
+            try:
+                existed = has_item(store, service, key)
+                put(store, service, key, value, attrs)
+                rows.append({"name": label, "action": "updated" if existed else "created", "env": env_tag, "msg": ""})
+            except Exception as e:
+                rows.append({"name": label, "action": "error", "env": env_tag, "msg": str(e)})
+
+    # Print summary table
+    if not rows:
+        print("Nothing to ingest")
+        return
+    name_w = max(4, max(len(r["name"]) for r in rows))
+    act_w = max(6, max(len(r["action"]) for r in rows))
+    env_w = max(3, max(len(r["env"]) for r in rows))
+    print(f"{'Name':<{name_w}}  {'Action':<{act_w}}  {'Env':<{env_w}}  Message")
+    print("-" * (name_w + act_w + env_w + 4 + 8))
+    totals = {"created": 0, "updated": 0, "skip": 0, "error": 0}
+    for r in rows:
+        print(f"{r['name']:<{name_w}}  {r['action']:<{act_w}}  {r['env']:<{env_w}}  {r['msg']}")
+        if r["action"].startswith("DRY-"):
+            continue
+        if r["action"] in totals:
+            totals[r["action"]] += 1
+    print("-")
+    print(
+        f"Totals: created={totals['created']}, updated={totals['updated']}, skipped={totals['skip']}, errors={totals['error']}"
+    )
