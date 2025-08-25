@@ -62,6 +62,107 @@ mask_secret() {
     printf "%s%*s" "${secret:0:$visible_length}" $((length - visible_length)) | tr ' ' '*'
 }
 
+# Function to process secret-tool output and extract items
+process_secret_output() {
+    local output="$1"
+    local show_unmasked="$2"
+    
+    # Variables to hold current item data
+    local label=""
+    local secret=""
+    local service="N/A"
+    local username="N/A"
+    local in_item=false
+    
+    # Keep track of items we've already displayed to avoid duplicates
+    local displayed_items=()
+    
+    # Function to display an item if it hasn't been displayed yet
+    display_item() {
+        local item_service="$1"
+        local item_username="$2"
+        local item_label="$3"
+        local item_secret="$4"
+        
+        # Create a unique identifier for this item
+        local item_id="${item_service}:${item_username}:${item_label}"
+        
+        # Check if we've already displayed this item
+        for displayed in "${displayed_items[@]}"; do
+            if [ "$displayed" = "$item_id" ]; then
+                return
+            fi
+        done
+        
+        # Add to displayed items
+        displayed_items+=("$item_id")
+        
+        # Display the item
+        if [ "$show_unmasked" = true ]; then
+            printf "%-20s %-20s %-30s %s\n" "$item_service" "$item_username" "$item_label" "$item_secret"
+        else
+            local masked_secret=$(mask_secret "$item_secret")
+            printf "%-20s %-20s %-30s %s\n" "$item_service" "$item_username" "$item_label" "$masked_secret"
+        fi
+    }
+    
+    # Process output line by line
+    while IFS= read -r line; do
+        # Check if this is the start of a new item
+        if [[ $line =~ ^\[.*\]$ ]]; then
+            # If we were processing an item, display it
+            if [ "$in_item" = true ] && [ -n "$secret" ]; then
+                display_item "$service" "$username" "$label" "$secret"
+            fi
+            
+            # Reset for new item
+            in_item=true
+            label=""
+            secret=""
+            service="N/A"
+            username="N/A"
+            continue
+        fi
+        
+        # Skip empty lines but don't reset the item
+        if [ -z "$line" ]; then
+            continue
+        fi
+        
+        # Parse key-value pairs (with spaces around =)
+        if [[ $line =~ ^([^=]+)[[:space:]]*=[[:space:]]*(.*)$ ]] && [ "$in_item" = true ]; then
+            local key="${BASH_REMATCH[1]}"
+            local value="${BASH_REMATCH[2]}"
+            
+            # Trim leading/trailing whitespace from key
+            key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            
+            case "$key" in
+                "label")
+                    label="$value"
+                    ;;
+                "secret")
+                    secret="$value"
+                    ;;
+                "created"|"modified"|"schema")
+                    # Ignore these fields
+                    ;;
+                attribute.service)
+                    service="$value"
+                    ;;
+                attribute.username)
+                    username="$value"
+                    ;;
+            esac
+        fi
+    done <<< "$output"
+    
+    # Display the last item if we were processing one
+    if [ "$in_item" = true ] && [ -n "$secret" ]; then
+        display_item "$service" "$username" "$label" "$secret"
+    fi
+}
+
 # Function to search for secrets by attribute
 search_secrets() {
     local attribute="$1"
@@ -111,93 +212,8 @@ search_secrets() {
         printf "%*s\n" 90 | tr ' ' '-'
     fi
     
-    # Variables to hold current item data
-    local label=""
-    local secret=""
-    local service="N/A"
-    local username="N/A"
-    local in_item=false
-    
-    # Process output line by line
-    while IFS= read -r line; do
-        # Check if this is the start of a new item
-        if [[ $line =~ ^\[.*\]$ ]]; then
-            # If we were processing an item, print it
-            if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                if [ "$show_unmasked" = true ]; then
-                    printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$secret"
-                else
-                    local masked_secret=$(mask_secret "$secret")
-                    printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$masked_secret"
-                fi
-            fi
-            
-            # Reset for new item
-            in_item=true
-            label=""
-            secret=""
-            service="N/A"
-            username="N/A"
-            continue
-        fi
-        
-        # Skip empty lines
-        if [ -z "$line" ]; then
-            # If we were processing an item, print it
-            if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                if [ "$show_unmasked" = true ]; then
-                    printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$secret"
-                else
-                    local masked_secret=$(mask_secret "$secret")
-                    printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$masked_secret"
-                fi
-                # Reset for next item
-                in_item=false
-                label=""
-                secret=""
-                service="N/A"
-                username="N/A"
-            fi
-            continue
-        fi
-        
-        # Parse key-value pairs (with spaces around =)
-        if [[ $line =~ ^([^=]+)[[:space:]]*=[[:space:]]*(.*)$ ]] && [ "$in_item" = true ]; then
-            local key="${BASH_REMATCH[1]}"
-            local value="${BASH_REMATCH[2]}"
-            
-            # Trim leading/trailing whitespace from key
-            key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            
-            case "$key" in
-                "label")
-                    label="$value"
-                    ;;
-                "secret")
-                    secret="$value"
-                    ;;
-                "created"|"modified"|"schema")
-                    # Ignore these fields
-                    ;;
-                attribute.service)
-                    service="$value"
-                    ;;
-                attribute.username)
-                    username="$value"
-                    ;;
-            esac
-        fi
-    done <<< "$output"
-    
-    # Print the last item if we were processing one
-    if [ "$in_item" = true ] && [ -n "$secret" ]; then
-        if [ "$show_unmasked" = true ]; then
-            printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$secret"
-        else
-            local masked_secret=$(mask_secret "$secret")
-            printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$masked_secret"
-        fi
-    fi
+    # Process the output using our new function
+    process_secret_output "$output" "$show_unmasked"
 }
 
 # Function to get a full secret
@@ -321,198 +337,41 @@ list_secrets() {
     local services=("test-service" "binance" "upstox" "coinbase")
     local usernames=("test-user" "trader1" "investor2" "crypto_user3")
     
-    # Keep track of items we've already displayed to avoid duplicates
-    local displayed_items=()
-    
-    # Function to display an item if it hasn't been displayed yet
-    display_item() {
-        local service="$1"
-        local username="$2"
-        local label="$3"
-        local secret="$4"
-        
-        # Create a unique identifier for this item
-        local item_id="${service}:${username}:${label}"
-        
-        # Check if we've already displayed this item
-        for displayed in "${displayed_items[@]}"; do
-            if [ "$displayed" = "$item_id" ]; then
-                return
-            fi
-        done
-        
-        # Add to displayed items
-        displayed_items+=("$item_id")
-        
-        # Display the item
-        if [ "$show_unmasked" = true ]; then
-            printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$secret"
-        else
-            local masked_secret=$(mask_secret "$secret")
-            printf "%-20s %-20s %-30s %s\n" "$service" "$username" "$label" "$masked_secret"
-        fi
-        
-        found_secrets=true
-    }
+    # Keep track of all output to process at the end
+    local all_output=""
     
     # Search for services
     for service in "${services[@]}"; do
         local output=$(secret-tool search service "$service" 2>&1)
-        if [ $? -eq 0 ]; then
-            # Process the output
-            local label=""
-            local secret=""
-            local service_attr="N/A"
-            local username="N/A"
-            local in_item=false
-            
-            while IFS= read -r line; do
-                # Check if this is the start of a new item
-                if [[ $line =~ ^\[.*\]$ ]]; then
-                    # If we were processing an item, display it
-                    if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                        display_item "$service_attr" "$username" "$label" "$secret"
-                    fi
-                    
-                    # Reset for new item
-                    in_item=true
-                    label=""
-                    secret=""
-                    service_attr="N/A"
-                    username="N/A"
-                    continue
-                fi
-                
-                # Skip empty lines
-                if [ -z "$line" ]; then
-                    # If we were processing an item, display it
-                    if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                        display_item "$service_attr" "$username" "$label" "$secret"
-                        # Reset for next item
-                        in_item=false
-                        label=""
-                        secret=""
-                        service_attr="N/A"
-                        username="N/A"
-                    fi
-                    continue
-                fi
-                
-                # Parse key-value pairs
-                if [[ $line =~ ^([^=]+)[[:space:]]*=[[:space:]]*(.*)$ ]] && [ "$in_item" = true ]; then
-                    local key="${BASH_REMATCH[1]}"
-                    local value="${BASH_REMATCH[2]}"
-                    
-                    # Trim leading/trailing whitespace from key
-                    key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    
-                    case "$key" in
-                        "label")
-                            label="$value"
-                            ;;
-                        "secret")
-                            secret="$value"
-                            ;;
-                        "created"|"modified"|"schema")
-                            # Ignore these fields
-                            ;;
-                        attribute.service)
-                            service_attr="$value"
-                            ;;
-                        attribute.username)
-                            username="$value"
-                            ;;
-                    esac
-                fi
-            done <<< "$output"
-            
-            # Display the last item if we were processing one
-            if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                display_item "$service_attr" "$username" "$label" "$secret"
+        if [ $? -eq 0 ] && [ -n "$output" ]; then
+            # Add a separator between different service outputs
+            if [ -n "$all_output" ]; then
+                all_output="$all_output"$'\n'"$output"
+            else
+                all_output="$output"
             fi
+            found_secrets=true
         fi
     done
     
     # Search for usernames
     for username in "${usernames[@]}"; do
         local output=$(secret-tool search username "$username" 2>&1)
-        if [ $? -eq 0 ]; then
-            # Process the output
-            local label=""
-            local secret=""
-            local service_attr="N/A"
-            local username_attr="N/A"
-            local in_item=false
-            
-            while IFS= read -r line; do
-                # Check if this is the start of a new item
-                if [[ $line =~ ^\[.*\]$ ]]; then
-                    # If we were processing an item, display it
-                    if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                        display_item "$service_attr" "$username_attr" "$label" "$secret"
-                    fi
-                    
-                    # Reset for new item
-                    in_item=true
-                    label=""
-                    secret=""
-                    service_attr="N/A"
-                    username_attr="N/A"
-                    continue
-                fi
-                
-                # Skip empty lines
-                if [ -z "$line" ]; then
-                    # If we were processing an item, display it
-                    if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                        display_item "$service_attr" "$username_attr" "$label" "$secret"
-                        # Reset for next item
-                        in_item=false
-                        label=""
-                        secret=""
-                        service_attr="N/A"
-                        username_attr="N/A"
-                    fi
-                    continue
-                fi
-                
-                # Parse key-value pairs
-                if [[ $line =~ ^([^=]+)[[:space:]]*=[[:space:]]*(.*)$ ]] && [ "$in_item" = true ]; then
-                    local key="${BASH_REMATCH[1]}"
-                    local value="${BASH_REMATCH[2]}"
-                    
-                    # Trim leading/trailing whitespace from key
-                    key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    
-                    case "$key" in
-                        "label")
-                            label="$value"
-                            ;;
-                        "secret")
-                            secret="$value"
-                            ;;
-                        "created"|"modified"|"schema")
-                            # Ignore these fields
-                            ;;
-                        attribute.service)
-                            service_attr="$value"
-                            ;;
-                        attribute.username)
-                            username_attr="$value"
-                            ;;
-                    esac
-                fi
-            done <<< "$output"
-            
-            # Display the last item if we were processing one
-            if [ "$in_item" = true ] && [ -n "$secret" ]; then
-                display_item "$service_attr" "$username_attr" "$label" "$secret"
+        if [ $? -eq 0 ] && [ -n "$output" ]; then
+            # Add a separator between different username outputs
+            if [ -n "$all_output" ]; then
+                all_output="$all_output"$'\n'"$output"
+            else
+                all_output="$output"
             fi
+            found_secrets=true
         fi
     done
     
-    # If no secrets were found, show a message
-    if [ "$found_secrets" = false ]; then
+    # Process all the collected output
+    if [ "$found_secrets" = true ] && [ -n "$all_output" ]; then
+        process_secret_output "$all_output" "$show_unmasked"
+    else
         echo "No secrets found in the keyring."
     fi
 }
