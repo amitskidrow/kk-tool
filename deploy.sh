@@ -6,7 +6,7 @@ TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 
 # Add and commit all changes with timestamp
 git add .
-git commit -m "Auto deploy: $TIMESTAMP"
+git commit --allow-empty -m "Auto deploy: $TIMESTAMP"
 echo "Committed changes with timestamp: $TIMESTAMP"
 
 # Push to GitHub
