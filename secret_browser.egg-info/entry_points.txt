@@ -1,2 +1,0 @@
-[console_scripts]
-secret-browser = secret_browser_package.secret_browser:main
