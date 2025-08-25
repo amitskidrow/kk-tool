@@ -67,6 +67,44 @@ Only the `get` command shows full secrets, and requires explicit confirmation:
 Show full secret for 'Binance API Key'? Type 'yes' to confirm:
 ```
 
+## Using in Python Scripts
+
+While `kk` is a CLI tool, you can also access GNOME Keyring secrets directly in Python using the `keyring` library, which is the underlying library that `kk` uses for secret management.
+
+First, install the keyring library:
+```bash
+pip install keyring
+```
+
+Then use it in your Python scripts:
+```python
+import keyring
+
+# Retrieve a secret
+password = keyring.get_password('service_name', 'username')
+print(f"Retrieved password: {password}")
+
+# Set a secret
+keyring.set_password('service_name', 'username', 'new_password')
+```
+
+Example script to retrieve broker secrets:
+```python
+import keyring
+
+services = [
+    ('binance', 'trader1'),
+    ('upstox', 'investor2'),
+    ('coinbase', 'crypto_user3')
+]
+
+for service, username in services:
+    password = keyring.get_password(service, username)
+    print(f"{service}: {password}")
+```
+
+The `kk` tool complements Python scripts by providing a safe way to browse and verify secrets from the command line without exposing them.
+
 ## License
 
 MIT
