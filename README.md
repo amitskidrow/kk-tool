@@ -1,35 +1,24 @@
-# kk - GNOME Keyring Browser
+# kk - Namespace-Aware GNOME Keyring CLI
 
-A lightweight CLI tool to safely browse and manage secrets in GNOME Keyring, designed specifically for agentic CLI workflows.
+A lightweight, namespace-aware CLI to safely browse and manage secrets in GNOME Keyring (Secret Service), designed for agentic CLI workflows.
 
 ## Features
 
-- **Safe secret browsing**: List and search commands show masked secrets (70% visible) to prevent accidental exposure
-- **Agent-friendly**: Allows agents to verify secrets exist and identify parameters without exposing full secrets
-- **Simple installation**: One-liner global installation via curl
-- **Standard GNOME Keyring integration**: Uses `secret-tool` under the hood
-- **Confirmation required**: Full secret retrieval requires explicit user confirmation
-- **Secret management**: Remove secrets with confirmation to prevent accidental deletion
-- **Bulk ingestion**: Python script to ingest secrets from .env files
+- **Namespaces**: All items are scoped by `kk_ns=<namespace>` (default `ss`).
+- **Unified storage**: One storage layer used by CLI and ingestor (Secret Service via DBus).
+- **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default).
+- **Isolation**: By default only shows items created by `kk` in your namespace.
+- **Confirmation required**: Full secret retrieval requires explicit confirmation.
+- **Bulk ingestion**: Ingest `.env` files consistently with the same contract.
 
 ## Installation
 
-Install globally with a single command:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/amitskidrow/kk-tool/main/install.sh | bash
-```
-
-This will:
-1. Check for required dependencies
-2. Download the latest version of `kk`
-3. Install it to `/usr/local/bin` (system-wide) or `~/.local/bin` (user-only)
-4. Make it executable and available in your PATH
+Local development: use `python -m kkcli --version` or `./kk`. Packaging is provided via `pyproject.toml`.
 
 ### Requirements
 
-- `secret-tool` (usually part of `libsecret-tools` package)
-- `curl` or `wget` for downloading
+- `python>=3.9`, `secretstorage` Python package
+- A running Secret Service (e.g., GNOME Keyring) on DBus
 
 ## Usage
 
@@ -40,22 +29,28 @@ kk --help
 # Show version
 kk --version
 
-# List all secrets (masked)
+# Show effective context
 kk list
 
-# Search for secrets by attribute (masked)
-kk search service binance
+# Search (masked)
+kk search binance
 
-# Get full secret (requires confirmation)
-kk get binance trader1
+# Get full secret (confirm)
+kk get binance/USER1
 
-# Remove a secret (requires confirmation)
-kk remove binance trader1
+# Set or update a secret
+kk set binance/USER1 --value your_secret
+
+# Remove (confirm)
+kk remove binance/USER1
+
+# Ingest .env files in a directory
+kk ingest credentials/ --env dev --dry-run
 ```
 
 ## For Agentic CLI Tools
 
-The `list` and `search` commands show masked secrets (first 70% visible) which allows agents to:
+The `list` and `search` commands show masked secrets (~35% visible) which allows agents to:
 - Verify that secrets exist
 - Identify the correct service and username parameters for retrieval
 - Work with secrets safely without exposing them
@@ -74,7 +69,7 @@ Show full secret for 'Binance API Key'? Type 'yes' to confirm:
 
 ## Using in Python Scripts
 
-While `kk` is a CLI tool, you can also access GNOME Keyring secrets directly in Python using the `keyring` library, which is the underlying library that `kk` uses for secret management.
+While `kk` is a CLI tool, you can also access GNOME Keyring secrets directly in Python using the `secretstorage`/`keyring` libraries. `kk` talks to Secret Service via `secretstorage`.
 
 First, install the keyring library:
 ```bash
@@ -115,11 +110,11 @@ The `kk` tool complements Python scripts by providing a safe way to browse and v
 A Python script `ingest_secrets.py` is included to bulk import secrets from `.env` files:
 
 ```bash
-# Run in dry-run mode to see what would be imported
-python ingest_secrets.py --dry-run
+# Ingest via CLI (recommended)
+kk ingest . --dry-run
 
-# Actually import secrets
-python ingest_secrets.py
+# Legacy wrapper (delegates to kk ingest)
+python ingest_secrets.py --dry-run
 ```
 
 The script follows these conventions:
@@ -134,7 +129,24 @@ BINANCE_API_KEY=your_api_key_here
 BINANCE_SECRET_KEY=your_secret_key_here
 ```
 
-This will create two secrets in the keyring with service name "binance", usernames "BINANCE_API_KEY" and "BINANCE_SECRET_KEY", and the corresponding values as secrets.
+This will create two secrets in the `kk` namespace (default `ss`) with label `binance/BINANCE_*`, idempotently.
+
+## Namespaces and Store Modes
+
+- Default namespace is `ss`. Override with `--ns` or `KK_NAMESPACE` env var.
+- Default store mode is `attribute` (filters by `kk_ns` in the default collection).
+- Optional store mode `collection` uses a dedicated collection `kk:<namespace>` for hard isolation (may prompt to unlock/create).
+
+Config file: `~/.config/kk/config.toml` (values under `[kk]`)
+```
+[kk]
+namespace = "ss"
+store_mode = "attribute"  # or "collection"
+default_env = "dev"
+mask_visible_ratio = 0.35
+```
+
+Environment overrides: `KK_NAMESPACE`, `KK_STORE_MODE`, `KK_DEFAULT_ENV`, `KK_MASK_VISIBLE_RATIO`.
 
 ## License
 

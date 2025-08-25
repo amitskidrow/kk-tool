@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kktool"
+version = "0.1.0"
+description = "Namespace-aware CLI for GNOME Keyring (Secret Service)"
+requires-python = ">=3.9"
+dependencies = [
+    "secretstorage>=3.3.3",
+]
+
+[project.scripts]
+kk = "kkcli.__main__:main"
