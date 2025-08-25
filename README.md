@@ -1,66 +1,72 @@
-# Secret Browser
+# kk - GNOME Keyring Browser
 
-A CLI tool to browse and manage secrets in GNOME Keyring, designed for both human users and agentic CLI tools.
+A lightweight CLI tool to safely browse and manage secrets in GNOME Keyring, designed specifically for agentic CLI workflows.
 
 ## Features
 
-- **Safe for agentic CLIs**: List and search commands show masked secrets (first 70% visible, rest hidden)
-- **Human-friendly**: Get command retrieves full secrets with confirmation prompt
-- **Minimal and secure**: No unnecessary dependencies or boilerplate code
-- **Linux-only**: Designed specifically for Linux systems with GNOME Keyring
+- **Safe secret browsing**: List and search commands show masked secrets (70% visible) to prevent accidental exposure
+- **Agent-friendly**: Allows agents to verify secrets exist and identify parameters without exposing full secrets
+- **Simple installation**: One-liner global installation via curl
+- **Standard GNOME Keyring integration**: Uses `secret-tool` under the hood
+- **Confirmation required**: Full secret retrieval requires explicit user confirmation
 
 ## Installation
 
-### Using pipx (recommended)
+Install globally with a single command:
 
 ```bash
-pipx install git+https://github.com/yourusername/secret-browser.git
+curl -sSL https://raw.githubusercontent.com/amitskidrow/kk-tool/main/install.sh | bash
 ```
 
-### Using pip
+This will:
+1. Check for required dependencies
+2. Download the latest version of `kk`
+3. Install it to `/usr/local/bin` (system-wide) or `~/.local/bin` (user-only)
+4. Make it executable and available in your PATH
 
-```bash
-pip install git+https://github.com/yourusername/secret-browser.git
-```
+### Requirements
+
+- `secret-tool` (usually part of `libsecret-tools` package)
+- `curl` or `wget` for downloading
 
 ## Usage
 
-### List all secrets (masked)
 ```bash
-secret-browser list
+# Show help
+kk --help
+
+# Show version
+kk --version
+
+# List all secrets (masked)
+kk list
+
+# Search for secrets by attribute (masked)
+kk search service binance
+
+# Get full secret (requires confirmation)
+kk get binance trader1
 ```
-
-### Search for secrets by attribute (masked)
-```bash
-secret-browser search service binance
-```
-
-### Retrieve a full secret (with confirmation)
-```bash
-secret-browser get binance trader1
-```
-
-### Show full secrets (WARNING: Exposes sensitive data)
-```bash
-secret-browser list --unmask
-secret-browser search service binance --unmask
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `list` | List all secrets (with masked values by default) |
-| `search` | Search for secrets by attribute |
-| `get` | Retrieve a full secret (requires confirmation) |
-| `version` | Show version |
 
 ## For Agentic CLI Tools
 
-When using with agentic CLI tools like Claude Code or Qwen Code, use the `list` or `search` commands which show masked secrets. This allows the agent to:
+The `list` and `search` commands show masked secrets (first 70% visible) which allows agents to:
+- Verify that secrets exist
+- Identify the correct service and username parameters for retrieval
+- Work with secrets safely without exposing them
 
-1. Verify that a secret exists
-2. Identify the service and username
-3. Know what parameters to use with the `get` command
+Example masked output:
+```
+Service              Username             Label                          Secret (masked)
+------------------------------------------------------------------------------------------
+binance              trader1              Binance API Key                binance-api-k******
+```
 
-The masking shows the first 70% of the secret, which is enough for identification without exposing the full secret.
+Only the `get` command shows full secrets, and requires explicit confirmation:
+```
+Show full secret for 'Binance API Key'? Type 'yes' to confirm:
+```
+
+## License
+
+MIT
