@@ -9,6 +9,8 @@ A lightweight CLI tool to safely browse and manage secrets in GNOME Keyring, des
 - **Simple installation**: One-liner global installation via curl
 - **Standard GNOME Keyring integration**: Uses `secret-tool` under the hood
 - **Confirmation required**: Full secret retrieval requires explicit user confirmation
+- **Secret management**: Remove secrets with confirmation to prevent accidental deletion
+- **Bulk ingestion**: Python script to ingest secrets from .env files
 
 ## Installation
 
@@ -46,6 +48,9 @@ kk search service binance
 
 # Get full secret (requires confirmation)
 kk get binance trader1
+
+# Remove a secret (requires confirmation)
+kk remove binance trader1
 ```
 
 ## For Agentic CLI Tools
@@ -104,6 +109,32 @@ for service, username in services:
 ```
 
 The `kk` tool complements Python scripts by providing a safe way to browse and verify secrets from the command line without exposing them.
+
+## Secret Ingestion Script
+
+A Python script `ingest_secrets.py` is included to bulk import secrets from `.env` files:
+
+```bash
+# Run in dry-run mode to see what would be imported
+python ingest_secrets.py --dry-run
+
+# Actually import secrets
+python ingest_secrets.py
+```
+
+The script follows these conventions:
+- Files named `.binance.env` will create secrets with service name "binance"
+- Files named `test.env` will create secrets with service name "test"
+- Each key-value pair in the file becomes a separate secret
+- Keys become the username/label, values become the secret
+
+Example `.binance.env` file:
+```
+BINANCE_API_KEY=your_api_key_here
+BINANCE_SECRET_KEY=your_secret_key_here
+```
+
+This will create two secrets in the keyring with service name "binance", usernames "BINANCE_API_KEY" and "BINANCE_SECRET_KEY", and the corresponding values as secrets.
 
 ## License
 
