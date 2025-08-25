@@ -1,154 +1,96 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Installation script for kk - A CLI tool to browse and manage secrets in GNOME Keyring
+# Installation script for kk via Python package (kktool)
 # Usage: curl -sSL https://raw.githubusercontent.com/amitskidrow/kk-tool/main/install.sh | bash
 
-set -e
+PKG_NAME="kktool"
+REPO_REF="git+https://github.com/amitskidrow/kk-tool@main"
+BINARY_NAME="kk"
+USER_BIN="$HOME/.local/bin"
 
-# Define variables
-REPO_URL="https://raw.githubusercontent.com/amitskidrow/kk-tool/main"
-INSTALL_DIR="/usr/local/bin"
-USER_INSTALL_DIR="$HOME/.local/bin"
-TOOL_NAME="kk"
-TEMP_DIR=$(mktemp -d)
+info() { echo "INFO: $*"; }
+warn() { echo "WARN: $*" >&2; }
+err()  { echo "ERROR: $*" >&2; }
 
-# Cleanup function
-cleanup() {
-    rm -rf "$TEMP_DIR"
+have() { command -v "$1" >/dev/null 2>&1; }
+
+ensure_python() {
+  if ! have python3; then
+    err "python3 not found. Please install Python 3.9+ and re-run."
+    exit 1
+  fi
 }
 
-# Trap exit to cleanup
-trap cleanup EXIT
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
+install_with_pipx() {
+  info "Installing with pipx (force upgrade)..."
+  pipx install --force "$REPO_REF"
 }
 
-# Function to check if we can write to a directory
-can_write_to_dir() {
-    touch "$1/.kk_test" 2>/dev/null && rm -f "$1/.kk_test"
+install_with_pip_user() {
+  info "Installing with pip --user (upgrade)..."
+  if ! have pip3 && ! python3 -m pip --version >/dev/null 2>&1; then
+    err "pip not found for python3. Please install pip or pipx."
+    exit 1
+  fi
+  python3 -m pip install --user --upgrade "$REPO_REF"
 }
 
-# Function to print error message
-print_error() {
-    echo "Error: $1" >&2
+print_path_hint() {
+  if ! echo ":$PATH:" | grep -q ":$USER_BIN:"; then
+    warn "$USER_BIN is not in your PATH. Add it with:"
+    echo "  export PATH=\"\$PATH:$USER_BIN\""
+    echo "Then restart your shell or source your rc file."
+  fi
 }
 
-# Function to print info message
-print_info() {
-    echo "INFO: $1"
+post_install_check() {
+  hash -r || true
+  local kk_path
+  if have "$BINARY_NAME"; then
+    kk_path=$(command -v "$BINARY_NAME")
+  elif [ -x "$USER_BIN/$BINARY_NAME" ]; then
+    kk_path="$USER_BIN/$BINARY_NAME"
+  else
+    kk_path=""
+  fi
+
+  if [ -z "$kk_path" ]; then
+    err "Installation appears to have succeeded but '$BINARY_NAME' not found on PATH."
+    print_path_hint
+    return 1
+  fi
+
+  info "Installed to: $kk_path"
+  echo ""
+  echo "Smoke test:"
+  set +e
+  "$kk_path" --version
+  "$kk_path" doctor || true
+  set -e
+
+  echo ""
+  echo "Next steps:"
+  echo "  kk --help     # Show help"
+  echo "  kk list       # List secrets (masked)"
+  echo "  kk get <service> <username>  # Show full secret"
+
+  print_path_hint
 }
 
-# Function to check dependencies
-check_dependencies() {
-    print_info "Checking dependencies..."
-    
-    # Check if secret-tool is installed
-    if ! command_exists secret-tool; then
-        print_error "secret-tool is not installed. Please install libsecret-tools package."
-        exit 1
-    fi
-    
-    # Check if curl or wget is installed
-    if ! command_exists curl && ! command_exists wget; then
-        print_error "Either curl or wget is required for installation."
-        exit 1
-    fi
-    
-    print_info "All dependencies are satisfied."
-}
-
-# Function to download file
-download_file() {
-    local url="$1"
-    local dest="$2"
-    
-    if command_exists curl; then
-        curl -sSL "$url" -o "$dest"
-    elif command_exists wget; then
-        wget -qO "$dest" "$url"
-    else
-        print_error "No download tool available"
-        exit 1
-    fi
-}
-
-# Function to install the tool
-install_tool() {
-    print_info "Downloading $TOOL_NAME..."
-    
-    # Download the tool
-    download_file "$REPO_URL/$TOOL_NAME" "$TEMP_DIR/$TOOL_NAME"
-    
-    # Check if download was successful
-    if [ ! -f "$TEMP_DIR/$TOOL_NAME" ]; then
-        print_error "Failed to download $TOOL_NAME"
-        exit 1
-    fi
-    
-    # Make it executable
-    chmod +x "$TEMP_DIR/$TOOL_NAME"
-    
-    # Try to install to system directory first
-    if can_write_to_dir "$INSTALL_DIR"; then
-        sudo cp "$TEMP_DIR/$TOOL_NAME" "$INSTALL_DIR/"
-        print_info "$TOOL_NAME has been installed to $INSTALL_DIR/$TOOL_NAME"
-        INSTALL_PATH="$INSTALL_DIR/$TOOL_NAME"
-    # If that fails, try user directory
-    elif can_write_to_dir "$USER_INSTALL_DIR"; then
-        mkdir -p "$USER_INSTALL_DIR"
-        cp "$TEMP_DIR/$TOOL_NAME" "$USER_INSTALL_DIR/"
-        print_info "$TOOL_NAME has been installed to $USER_INSTALL_DIR/$TOOL_NAME"
-        INSTALL_PATH="$USER_INSTALL_DIR/$TOOL_NAME"
-    else
-        print_error "Cannot write to $INSTALL_DIR or $USER_INSTALL_DIR"
-        exit 1
-    fi
-    
-    # Verify installation
-    if [ -f "$INSTALL_PATH" ]; then
-        print_info "Installation successful!"
-        echo ""
-        echo "You can now use the $TOOL_NAME command:"
-        echo "  $TOOL_NAME --help     # Show help"
-        echo "  $TOOL_NAME --version  # Show version"
-        echo "  $TOOL_NAME list       # List all secrets (masked)"
-        echo "  $TOOL_NAME search <attribute> <value>  # Search for secrets"
-        echo "  $TOOL_NAME get <service> <username>    # Get full secret"
-        echo ""
-        echo "For agentic CLI tools:"
-        echo "  The list and search commands show masked secrets (first 70% visible)"
-        echo "  This allows agents to verify secrets exist and identify parameters for get"
-        echo ""
-        
-        # Check if the tool is in PATH
-        if ! command -v "$TOOL_NAME" >/dev/null 2>&1; then
-            echo "NOTE: $TOOL_NAME is not in your PATH."
-            if [ "$INSTALL_PATH" = "$USER_INSTALL_DIR/$TOOL_NAME" ]; then
-                echo "Please add $USER_INSTALL_DIR to your PATH by adding this line to your shell configuration file:"
-                echo "  export PATH=\"\$PATH:$USER_INSTALL_DIR\""
-                echo "Then restart your terminal or run: source ~/.bashrc (or ~/.zshrc)"
-            fi
-        fi
-    else
-        print_error "Installation failed"
-        exit 1
-    fi
-}
-
-# Main function
 main() {
-    echo "Installing $TOOL_NAME..."
-    
-    # Check dependencies
-    check_dependencies
-    
-    # Install the tool
-    install_tool
-    
-    echo "Installation completed successfully!"
+  info "Installing $BINARY_NAME..."
+  ensure_python
+
+  if have pipx; then
+    install_with_pipx
+  else
+    warn "pipx not found; falling back to user-level pip install"
+    install_with_pip_user
+  fi
+
+  info "Installation successful!"
+  post_install_check || true
 }
 
-# Run main function
 main "$@"

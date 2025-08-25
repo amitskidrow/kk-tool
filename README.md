@@ -13,12 +13,24 @@ A lightweight, namespace-aware CLI to safely browse and manage secrets in GNOME 
 
 ## Installation
 
-Local development: use `python -m kkcli --version` or `./kk`. Packaging is provided via `pyproject.toml`.
+Quick install with pipx (recommended):
+
+```
+pipx install --force git+https://github.com/amitskidrow/kk-tool@main
+```
+
+Alternative via installer script:
+
+```
+curl -sSL https://raw.githubusercontent.com/amitskidrow/kk-tool/main/install.sh | bash
+```
+
+Local development: you can also run from the repo with `./kk`.
 
 ### Requirements
 
-- `python>=3.9`, `secretstorage` Python package
-- A running Secret Service (e.g., GNOME Keyring) on DBus
+- `python>=3.9`; install via `pipx` or `pip`
+- Secret Service on DBus (e.g., GNOME Keyring). `kk doctor` reports status.
 
 ## Usage
 
@@ -46,6 +58,20 @@ kk remove binance/USER1
 
 # Ingest .env files in a directory
 kk ingest credentials/ --env dev --dry-run
+
+```
+
+## Deploy
+
+After changes, deploy and validate installation flow:
+
+```
+./deploy.sh
+```
+
+This script commits and pushes, installs via the online installer, then verifies:
+- `kk --version` (must succeed)
+- `kk doctor` (diagnostics; non-fatal if DBus/keyring is locked/unavailable)
 ```
 
 ## For Agentic CLI Tools

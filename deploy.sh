@@ -17,37 +17,24 @@ echo "Pushed to GitHub"
 echo "Waiting for GitHub cache to update..."
 sleep 15
 
-# Install via curl and log version
+# Install via curl
 echo "Installing via curl..."
-INSTALL_OUTPUT=$(curl -sSL https://raw.githubusercontent.com/amitskidrow/kk-tool/main/install.sh | bash)
-echo "$INSTALL_OUTPUT"
+curl -sSL https://raw.githubusercontent.com/amitskidrow/kk-tool/main/install.sh | bash
+echo "Installation attempted"
 
-# Extract version from the installation output
-if echo "$INSTALL_OUTPUT" | grep -q "Installation completed successfully"; then
-    echo "Installation successful"
-else
-    echo "Installation failed"
-    echo "$INSTALL_OUTPUT"
-    exit 1
-fi
-
-# Test the installed version directly
+# Validate kk is available and print version
 echo "Testing installed version..."
 if command -v kk >/dev/null 2>&1; then
-    INSTALLED_VERSION=$(kk --version 2>/dev/null || echo "Failed to get version")
-    echo "Installed version: $INSTALLED_VERSION"
-    
-    # Test list command
-    echo "Testing kk list command..."
-    LIST_OUTPUT=$(kk list 2>/dev/null || echo "Failed to run list command")
-    echo "List command output:"
-    echo "$LIST_OUTPUT"
-    
-    # Test search command
-    echo "Testing kk search command..."
-    SEARCH_OUTPUT=$(kk search service test-service 2>/dev/null || echo "Failed to run search command")
-    echo "Search command output:"
-    echo "$SEARCH_OUTPUT"
+    set +e
+    kk --version
+    VERSION_STATUS=$?
+    echo "Running kk doctor (non-fatal)..."
+    kk doctor || true
+    set -e
+    if [ "$VERSION_STATUS" -ne 0 ]; then
+        echo "kk --version failed"
+        exit 1
+    fi
 else
     echo "kk command not found in PATH"
     exit 1

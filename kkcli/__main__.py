@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from .config import load_config
+from . import __version__
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,7 +24,12 @@ def build_parser() -> argparse.ArgumentParser:
     # Global options via env/config; kept minimal in CLI
     p.add_argument("--ns", dest="namespace", default=None, help="Override namespace")
     p.add_argument("--store-mode", dest="store_mode", choices=["attribute", "collection"], default=None, help="Override store mode")
-    p.add_argument("--version", action="store_true", help="Show version")
+    p.add_argument(
+        "--version",
+        action="version",
+        version=f"kk {__version__}",
+        help="Show version and exit",
+    )
     return p
 
 
@@ -32,9 +38,7 @@ def main(argv=None):
         argv = sys.argv[1:]
     parser = build_parser()
     args = parser.parse_args(argv)
-    if getattr(args, "version", False):
-        print("kk version 3.0.0")
-        return 0
+    # --version is handled by argparse action
     # Allow overrides of config via flags
     if args.namespace:
         import os
@@ -50,4 +54,3 @@ def main(argv=None):
 
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())
-
