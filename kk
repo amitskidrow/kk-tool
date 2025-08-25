@@ -3,7 +3,7 @@
 # kk - A CLI tool to browse and manage secrets in GNOME Keyring
 # Usage: kk [command] [options]
 
-VERSION="1.0.0"
+VERSION="1.0.1"  # Updated version
 
 # Function to display help
 show_help() {
