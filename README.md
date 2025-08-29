@@ -8,8 +8,8 @@ A lightweight, namespace-aware CLI to safely browse and manage secrets in GNOME 
 - **Unified storage**: One storage layer used by CLI and ingestor (Secret Service via DBus).
 - **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default).
 - **Isolation**: By default only shows items created by `kk` in your namespace.
- - **Direct retrieval**: `get` prints the full secret (no extra confirmation).
- - **Bulk ingestion**: Ingest dot-env files (`.<name>.env`) recursively with consistent semantics.
+- **Direct retrieval**: `get` prints the full secret (no extra confirmation).
+- **Bulk ingestion**: Ingest dot-env files (`.<name>.env`) recursively from a directory; also supports a single `.env` file path.
 
 ## Installation
 
@@ -62,6 +62,9 @@ kk ingest credentials/
 # Optional: preview without writing
 kk ingest credentials/ --dry-run
 
+# Ingest a single .env file
+kk ingest CREDENTIALS/.binance.env
+
 # Clean the namespace/env (destructive; requires explicit yes)
 kk clean yes
 
@@ -89,9 +92,9 @@ The `list` and `search` commands show masked secrets (~35% visible) which allows
 
 Example masked output:
 ```
-Service              Username             Label                          Secret (masked)
-------------------------------------------------------------------------------------------
-binance              trader1              Binance API Key                binance-api-k******
+Name                                     Secret (masked)
+--------------------------------------------------------
+binance/BINANCE_API_KEY                  binance-api-k******
 ```
 
 The `get` command prints full secrets directly; use it deliberately.
@@ -136,7 +139,8 @@ The `kk` tool complements Python scripts by providing a safe way to browse and v
 
 ## Ingestion Conventions
 
-- Only files matching the dot-notation pattern are ingested: `.<name>.env` (e.g., `.binance.env`).
+- Directory scan considers only files using the dot-notation pattern: `.<name>.env` (e.g., `.binance.env`).
+- Single-file mode accepts any `*.env` file path (e.g., `.binance.env` or `binance.env`).
 - The `<name>` prefix becomes the service name (`binance`).
 - Each `KEY=VALUE` pair becomes a separate item with label `<service>/<KEY>`.
 - The effective env tag is global (see config below) and not set per command.
@@ -157,6 +161,10 @@ mask_visible_ratio = 0.35
 ```
 
 Environment overrides (global): `KK_NAMESPACE`, `KK_STORE_MODE`, `KK_DEFAULT_ENV`, `KK_MASK_VISIBLE_RATIO`.
+
+Env scoping in commands:
+- `list`, `search`, `export`, `clean` use the configured `default_env` by default.
+- Override with `--env <name>` or show all envs with `--all-envs`.
 
 ## License
 

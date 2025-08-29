@@ -86,6 +86,14 @@ def put(store: Store, service: str, username: str, secret: str, attrs: Optional[
             if existing.is_locked():
                 existing.unlock()
             existing.set_label(label)
+            # Preserve created_at if present; always refresh updated_at
+            try:
+                old_attrs = existing.get_attributes() or {}
+            except Exception:
+                old_attrs = {}
+            if "created_at" in old_attrs:
+                a["created_at"] = old_attrs["created_at"]
+            a["updated_at"] = _now_iso()
             existing.set_attributes(a)
             existing.set_secret(secret.encode())
             return
@@ -170,7 +178,13 @@ def export_items(store: Store, fmt: str = "json", env: Optional[str] = None) -> 
                 val = r["secret"].decode()
             except Exception:
                 val = r["secret"].decode(errors="ignore")
-            out_lines.append(f"{usr}={val}")
+            # Quote and escape to be .env-safe
+            safe = (
+                val.replace("\\", "\\\\")
+                   .replace("\n", "\\n")
+                   .replace('"', '\\"')
+            )
+            out_lines.append(f"{usr}=\"{safe}\"")
         return "\n".join(out_lines).lstrip()
     else:
         payload = [

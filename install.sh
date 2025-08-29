@@ -73,7 +73,7 @@ post_install_check() {
   echo "Next steps:"
   echo "  kk --help     # Show help"
   echo "  kk list       # List secrets (masked)"
-  echo "  kk get <service> <username>  # Show full secret"
+  echo "  kk get <service>/<username>  # Show full secret"
 
   print_path_hint
 }

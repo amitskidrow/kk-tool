@@ -9,6 +9,7 @@ description = "Namespace-aware CLI for GNOME Keyring (Secret Service)"
 requires-python = ">=3.9"
 dependencies = [
     "secretstorage>=3.3.3",
+    "tomli>=2.0; python_version<'3.11'",
 ]
 
 [project.scripts]

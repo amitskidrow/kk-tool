@@ -1,51 +1,55 @@
 # kk Tool Test Script
 
-This script demonstrates the functionality of the kk tool and the ingestion script.
+This guide demonstrates core `kk` functionality and ingestion flows.
 
 ## Prerequisites
 
-1. GNOME Keyring must be running
-2. secret-tool must be installed
-3. Python keyring library must be installed
+1. GNOME Keyring / Secret Service available (desktop session)
+2. `python3` and `secretstorage` installed (installed via `pipx` in normal usage)
 
 ## Test Steps
 
-1. First, let's see what secrets we currently have:
+1. Show current secrets (masked):
    ```bash
    ./kk list
    ```
 
-2. Run the ingestion script in dry-run mode to see what would be imported:
+2. Ingest .env files from a directory (dry-run first):
    ```bash
-   ./ingest_secrets.py --dry-run
+   ./kk ingest CREDENTIALS/ --dry-run
    ```
 
-3. Actually import the secrets:
+3. Import for real:
    ```bash
-   ./ingest_secrets.py
+   ./kk ingest CREDENTIALS/
    ```
 
-4. List the secrets again to see the newly added ones:
+4. Ingest a single .env file:
+   ```bash
+   ./kk ingest CREDENTIALS/.binance.env
+   ```
+
+5. List again and verify entries:
    ```bash
    ./kk list
    ```
 
-5. Search for specific secrets:
+6. Search for a service:
    ```bash
-   ./kk search service binance
+   ./kk search binance
    ```
 
-6. Retrieve a full secret (requires confirmation):
+7. Retrieve a full secret:
    ```bash
-   ./kk get binance BINANCE_API_KEY
+   ./kk get binance/BINANCE_API_KEY
    ```
 
-7. Remove a secret (requires confirmation):
+8. Remove a secret (with confirmation prompt unless `--no-confirm` used):
    ```bash
-   ./kk remove binance BINANCE_API_KEY
+   ./kk remove binance/BINANCE_API_KEY
    ```
 
-8. Verify the secret was removed:
+9. Verify the secret was removed:
    ```bash
-   ./kk search service binance
+   ./kk search binance
    ```

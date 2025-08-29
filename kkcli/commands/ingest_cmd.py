@@ -7,9 +7,9 @@ from ..storage import open_store, put, has_item
 def register(subparsers):
     p = subparsers.add_parser(
         "ingest",
-        help="Ingest dot-env files (.*.env) from a directory, recursively",
+        help="Ingest dot-env files: directory scan (.*.env) or single .env file",
     )
-    p.add_argument("directory", nargs="?", default=".")
+    p.add_argument("path", nargs="?", default=".")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=run)
 
@@ -17,12 +17,24 @@ def register(subparsers):
 def run(args):
     cfg = load_config()
     print(f"[{cfg.context_header}]")
-    base = Path(args.directory)
-    if not base.exists() or not base.is_dir():
-        print(f"Error: {args.directory} is not a directory")
+    base = Path(args.path)
+    if not base.exists():
+        print(f"Error: {args.path} does not exist")
         return
-    # Recursive scan; only consider dot-notation .env files: .<name>.env
-    env_files = [p for p in base.rglob("*.env") if p.name.startswith(".")]
+    # Support single .env file path or recursive directory scan
+    env_files = []
+    if base.is_file():
+        if base.name.endswith(".env"):
+            env_files = [base]
+        else:
+            print(f"Error: {args.path} is not a .env file")
+            return
+    elif base.is_dir():
+        # Recursive scan; only consider dot-notation .env files: .<name>.env
+        env_files = [p for p in base.rglob("*.env") if p.name.startswith(".")]
+    else:
+        print(f"Error: {args.path} is not a file or directory")
+        return
     if not env_files:
         print("No .env files found")
         return

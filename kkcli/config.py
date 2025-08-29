@@ -6,7 +6,10 @@ from typing import Optional
 try:
     import tomllib  # Python 3.11+
 except Exception:  # pragma: no cover
-    tomllib = None  # type: ignore
+    try:
+        import tomli as tomllib  # type: ignore
+    except Exception:
+        tomllib = None  # type: ignore
 
 
 @dataclass
@@ -68,4 +71,3 @@ def load_config() -> Config:
     if cfg.store_mode not in ("attribute", "collection"):
         cfg.store_mode = "attribute"
     return cfg
-
