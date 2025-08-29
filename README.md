@@ -8,8 +8,8 @@ A lightweight, namespace-aware CLI to safely browse and manage secrets in GNOME 
 - **Unified storage**: One storage layer used by CLI and ingestor (Secret Service via DBus).
 - **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default).
 - **Isolation**: By default only shows items created by `kk` in your namespace.
-- **Confirmation required**: Full secret retrieval requires explicit confirmation.
-- **Bulk ingestion**: Ingest `.env` files consistently with the same contract.
+ - **Direct retrieval**: `get` prints the full secret (no extra confirmation).
+ - **Bulk ingestion**: Ingest dot-env files (`.<name>.env`) recursively with consistent semantics.
 
 ## Installation
 
@@ -47,17 +47,23 @@ kk list
 # Search (masked)
 kk search binance
 
-# Get full secret (confirm)
+# Get full secret
 kk get binance/USER1
 
 # Set or update a secret
 kk set binance/USER1 --value your_secret
 
-# Remove (confirm)
+# Remove
 kk remove binance/USER1
 
-# Ingest .env files in a directory
-kk ingest credentials/ --env dev --dry-run
+# Ingest dot-env files (.*.env) recursively from a directory
+kk ingest credentials/
+
+# Optional: preview without writing
+kk ingest credentials/ --dry-run
+
+# Clean the namespace/env (destructive; requires explicit yes)
+kk clean yes
 
 ```
 
@@ -88,10 +94,7 @@ Service              Username             Label                          Secret 
 binance              trader1              Binance API Key                binance-api-k******
 ```
 
-Only the `get` command shows full secrets, and requires explicit confirmation:
-```
-Show full secret for 'Binance API Key'? Type 'yes' to confirm:
-```
+The `get` command prints full secrets directly; use it deliberately.
 
 ## Using in Python Scripts
 
@@ -131,31 +134,12 @@ for service, username in services:
 
 The `kk` tool complements Python scripts by providing a safe way to browse and verify secrets from the command line without exposing them.
 
-## Secret Ingestion Script
+## Ingestion Conventions
 
-A Python script `ingest_secrets.py` is included to bulk import secrets from `.env` files:
-
-```bash
-# Ingest via CLI (recommended)
-kk ingest . --dry-run
-
-# Legacy wrapper (delegates to kk ingest)
-python ingest_secrets.py --dry-run
-```
-
-The script follows these conventions:
-- Files named `.binance.env` will create secrets with service name "binance"
-- Files named `test.env` will create secrets with service name "test"
-- Each key-value pair in the file becomes a separate secret
-- Keys become the username/label, values become the secret
-
-Example `.binance.env` file:
-```
-BINANCE_API_KEY=your_api_key_here
-BINANCE_SECRET_KEY=your_secret_key_here
-```
-
-This will create two secrets in the `kk` namespace (default `ss`) with label `binance/BINANCE_*`, idempotently.
+- Only files matching the dot-notation pattern are ingested: `.<name>.env` (e.g., `.binance.env`).
+- The `<name>` prefix becomes the service name (`binance`).
+- Each `KEY=VALUE` pair becomes a separate item with label `<service>/<KEY>`.
+- The effective env tag is global (see config below) and not set per command.
 
 ## Namespaces and Store Modes
 
@@ -172,7 +156,7 @@ default_env = "dev"
 mask_visible_ratio = 0.35
 ```
 
-Environment overrides: `KK_NAMESPACE`, `KK_STORE_MODE`, `KK_DEFAULT_ENV`, `KK_MASK_VISIBLE_RATIO`.
+Environment overrides (global): `KK_NAMESPACE`, `KK_STORE_MODE`, `KK_DEFAULT_ENV`, `KK_MASK_VISIBLE_RATIO`.
 
 ## License
 
