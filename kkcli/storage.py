@@ -1,6 +1,6 @@
 import datetime as _dt
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 def _ensure_secretstorage():
@@ -18,6 +18,26 @@ class Store:
     mode: str  # "attribute" or "collection"
     bus: object
     collection: object
+
+
+@dataclass
+class SecretRow:
+    name: str
+    secret: Union[bytes, str]
+    attrs: Dict[str, str]
+
+    def secret_text(self) -> str:
+        if isinstance(self.secret, (bytes, bytearray)):
+            try:
+                return self.secret.decode()
+            except Exception:
+                return self.secret.decode(errors="ignore")
+        return str(self.secret)
+
+    def masked_secret(self, visible_ratio: float, min_visible: int = 3) -> str:
+        from .masking import mask_secret  # Local import to avoid circular dependency
+
+        return mask_secret(self.secret, visible_ratio, min_visible)
 
 
 def open_store(namespace: str, mode: str = "attribute") -> Store:
@@ -76,7 +96,7 @@ def has_item(store: Store, service: str, username: str) -> bool:
     return _find_item(store, service, username) is not None
 
 
-def put(store: Store, service: str, username: str, secret: str, attrs: Optional[Dict[str, str]] = None) -> None:
+def put(store: Store, service: str, username: str, secret: str, attrs: Optional[Dict[str, str]] = None) -> str:
     label = f"{service}/{username}"
     a = _attrs_for(store.namespace, service, username, attrs)
     existing = _find_item(store, service, username)
@@ -98,7 +118,7 @@ def put(store: Store, service: str, username: str, secret: str, attrs: Optional[
             merged_attrs["updated_at"] = _now_iso()
             existing.set_attributes(merged_attrs)
             existing.set_secret(secret.encode())
-            return
+            return "updated"
         except Exception:
             try:
                 existing.delete()
@@ -109,6 +129,7 @@ def put(store: Store, service: str, username: str, secret: str, attrs: Optional[
     a["updated_at"] = _now_iso()
     # secretstorage>=3.3.0 signature: (label, attributes, secret, replace=False, content_type='text/plain')
     store.collection.create_item(label, a, secret.encode(), False)
+    return "created"
 
 
 def get(store: Store, service: str, username: str) -> Optional[str]:
@@ -132,10 +153,10 @@ def delete(store: Store, service: str, username: str) -> bool:
     return True
 
 
-def list_items(store: Store, contains: Optional[str] = None, env: Optional[str] = None) -> List[dict]:
+def list_items(store: Store, contains: Optional[str] = None, env: Optional[str] = None) -> List[SecretRow]:
     # Filter by namespace first
     items = store.collection.search_items({"kk_ns": store.namespace})
-    rows: List[dict] = []
+    rows: List[SecretRow] = []
     needle = (contains or "").lower()
     for it in items:
         try:
@@ -151,10 +172,10 @@ def list_items(store: Store, contains: Optional[str] = None, env: Optional[str] 
             if it.is_locked():
                 it.unlock()
             secret = it.get_secret()
-            rows.append({"name": label, "secret": secret, "attrs": attrs})
+            rows.append(SecretRow(name=label, secret=secret, attrs=attrs))
         except Exception:
             continue
-    rows.sort(key=lambda r: (r["attrs"].get("service", "").lower(), r["attrs"].get("username", "").lower()))
+    rows.sort(key=lambda r: (r.attrs.get("service", "").lower(), r.attrs.get("username", "").lower()))
     return rows
 
 
@@ -170,16 +191,13 @@ def export_items(store: Store, fmt: str = "json", env: Optional[str] = None) -> 
         out_lines: List[str] = []
         current_service = None
         for r in rows:
-            svc = r["attrs"].get("service", "")
-            usr = r["attrs"].get("username", "")
+            svc = r.attrs.get("service", "")
+            usr = r.attrs.get("username", "")
             if svc != current_service:
                 out_lines.append("")
                 out_lines.append(f"## service: {svc}")
                 current_service = svc
-            try:
-                val = r["secret"].decode()
-            except Exception:
-                val = r["secret"].decode(errors="ignore")
+            val = r.secret_text()
             # Quote and escape to be .env-safe
             safe = (
                 val.replace("\\", "\\\\")
@@ -192,10 +210,10 @@ def export_items(store: Store, fmt: str = "json", env: Optional[str] = None) -> 
         payload = [
             {
                 "kk_ns": store.namespace,
-                "service": r["attrs"].get("service"),
-                "username": r["attrs"].get("username"),
-                "secret": (r["secret"].decode(errors="ignore") if isinstance(r["secret"], (bytes, bytearray)) else str(r["secret"])) ,
-                "attrs": r["attrs"],
+                "service": r.attrs.get("service"),
+                "username": r.attrs.get("username"),
+                "secret": r.secret_text(),
+                "attrs": r.attrs,
             }
             for r in rows
         ]
@@ -206,13 +224,10 @@ def migrate(from_store: Store, to_store: Store) -> int:
     count = 0
     rows = list_items(from_store)
     for r in rows:
-        svc = r["attrs"].get("service", "")
-        usr = r["attrs"].get("username", "")
-        try:
-            val = r["secret"].decode()
-        except Exception:
-            val = r["secret"].decode(errors="ignore")
-        extra = {k: v for k, v in r["attrs"].items() if k not in {"kk_ns", "service", "username"}}
+        svc = r.attrs.get("service", "")
+        usr = r.attrs.get("username", "")
+        val = r.secret_text()
+        extra = {k: v for k, v in r.attrs.items() if k not in {"kk_ns", "service", "username"}}
         put(to_store, svc, usr, val, extra)
         count += 1
     return count

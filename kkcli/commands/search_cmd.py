@@ -1,8 +1,6 @@
-import json
-
-from ..config import load_config
-from ..masking import mask_secret
-from ..storage import open_store, list_items
+from ..context import get_context
+from ..output import masked_items_payload, print_masked_table
+from ..storage import list_items
 
 
 def register(subparsers):
@@ -16,39 +14,13 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     header = f"[{cfg.context_header}]"
-    store = open_store(cfg.namespace, cfg.store_mode)
+    store = ctx.store
     rows = list_items(store, contains=args.query, env=None)
     if args.json:
-        payload = []
-        for r in rows:
-            masked = mask_secret(r["secret"], cfg.mask_visible_ratio)
-            payload.append(
-                {
-                    "name": r["name"],
-                    "masked_secret": masked,
-                    "attrs": r["attrs"],
-                }
-            )
-        print(
-            json.dumps(
-                {
-                    "context": {
-                        "namespace": cfg.namespace,
-                        "env": cfg.default_env,
-                        "store_mode": cfg.store_mode,
-                    },
-                    "items": payload,
-                    "query": args.query,
-                }
-            )
-        )
+        print(masked_items_payload(cfg, rows, query=args.query))
         return
     print(header)
-    print(f"{'Name':<40} {'Secret (masked)'}")
-    print("-" * 80)
-    for r in rows:
-        name = r["name"]
-        masked = mask_secret(r["secret"], cfg.mask_visible_ratio)
-        print(f"{name:<40} {masked}")
+    print_masked_table(cfg, rows)

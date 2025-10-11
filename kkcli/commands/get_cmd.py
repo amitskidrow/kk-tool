@@ -1,11 +1,11 @@
-import json
 import sys
 from argparse import SUPPRESS
 
-from ..config import load_config
+from ..context import get_context
 from ..masking import mask_secret
 from ..naming import parse_name
-from ..storage import get as get_item, open_store
+from ..output import result_payload
+from ..storage import get as get_item
 
 _PASS_PHRASE = "ss"
 
@@ -22,30 +22,25 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     header = f"[{cfg.context_header}]"
     if not args.json:
         print(header)
     svc, usr = parse_name(args.name)
-    store = open_store(cfg.namespace, cfg.store_mode)
+    store = ctx.store
     val = get_item(store, svc, usr)
     if val is None:
         message = "Not found"
         if args.json:
             print(
-                json.dumps(
+                result_payload(
+                    cfg,
                     {
-                        "context": {
-                            "namespace": cfg.namespace,
-                            "env": cfg.default_env,
-                            "store_mode": cfg.store_mode,
-                        },
-                        "result": {
-                            "status": "error",
-                            "error": message,
-                            "name": f"{svc}/{usr}",
-                        },
-                    }
+                        "status": "error",
+                        "error": message,
+                        "name": f"{svc}/{usr}",
+                    },
                 )
             )
         else:
@@ -55,20 +50,17 @@ def run(args):
     masked = mask_secret(full_secret, cfg.mask_visible_ratio)
     reveal = args.passphrase == _PASS_PHRASE if args.passphrase is not None else False
     if args.json:
-        payload = {
-            "context": {
-                "namespace": cfg.namespace,
-                "env": cfg.default_env,
-                "store_mode": cfg.store_mode,
-            },
-            "result": {
-                "status": "ok",
-                "name": f"{svc}/{usr}",
-                "secret": full_secret if reveal else masked,
-                "masked": not reveal,
-            },
-        }
-        print(json.dumps(payload))
+        print(
+            result_payload(
+                cfg,
+                {
+                    "status": "ok",
+                    "name": f"{svc}/{usr}",
+                    "secret": full_secret if reveal else masked,
+                    "masked": not reveal,
+                },
+            )
+        )
         return
     output = full_secret if reveal else masked
     print(output)

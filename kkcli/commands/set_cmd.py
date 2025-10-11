@@ -1,9 +1,9 @@
 import getpass
-import json
 
-from ..config import load_config
+from ..context import get_context
 from ..naming import parse_name
-from ..storage import has_item, open_store, put
+from ..output import result_payload
+from ..storage import has_item, put
 
 
 def register(subparsers):
@@ -19,7 +19,8 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     header = f"[{cfg.context_header}]"
     if not args.json:
         print(header)
@@ -27,25 +28,22 @@ def run(args):
     val = args.value
     if val is None and not args.dry_run:
         val = getpass.getpass("Enter secret: ")
-    store = open_store(cfg.namespace, cfg.store_mode)
-    existed = has_item(store, svc, usr)
-    action = "update" if existed else "create"
+    store = ctx.store
+    if args.dry_run:
+        existed = has_item(store, svc, usr)
+        action = "update" if existed else "create"
+    else:
+        action = None
     if args.dry_run:
         if args.json:
             print(
-                json.dumps(
+                result_payload(
+                    cfg,
                     {
-                        "context": {
-                            "namespace": cfg.namespace,
-                            "env": cfg.default_env,
-                            "store_mode": cfg.store_mode,
-                        },
-                        "result": {
-                            "status": "dry-run",
-                            "action": action,
-                            "name": f"{svc}/{usr}",
-                        },
-                    }
+                        "status": "dry-run",
+                        "action": action,
+                        "name": f"{svc}/{usr}",
+                    },
                 )
             )
         else:
@@ -55,22 +53,16 @@ def run(args):
     if val is None:
         raise RuntimeError("Secret value is required when not running in dry-run mode.")
     extra = {"source": "cli", "env": cfg.default_env}
-    put(store, svc, usr, val, extra)
+    action = put(store, svc, usr, val, extra)
     if args.json:
         print(
-            json.dumps(
+            result_payload(
+                cfg,
                 {
-                    "context": {
-                        "namespace": cfg.namespace,
-                        "env": cfg.default_env,
-                        "store_mode": cfg.store_mode,
-                    },
-                    "result": {
-                        "status": "ok",
-                        "action": action,
-                        "name": f"{svc}/{usr}",
-                    },
-                }
+                    "status": "ok",
+                    "action": action,
+                    "name": f"{svc}/{usr}",
+                },
             )
         )
     else:

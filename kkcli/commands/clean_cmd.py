@@ -1,6 +1,7 @@
 import sys
-from ..config import load_config
-from ..storage import open_store, list_items, delete
+
+from ..context import get_context
+from ..storage import delete, list_items
 
 
 def register(subparsers):
@@ -14,14 +15,15 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     print(f"[{cfg.context_header}]")
-    store = open_store(cfg.namespace, cfg.store_mode)
+    store = ctx.store
     rows = list_items(store, env=None)
     if args.dry_run:
         print("Dry run — the following items would be deleted:")
         for r in rows:
-            print(f" - {r['name']}")
+            print(f" - {r.name}")
         print(f"Total candidates: {len(rows)}")
         return
     if args.confirm != "yes":
@@ -30,13 +32,13 @@ def run(args):
         sys.exit(1)
     count = 0
     for r in rows:
-        name = r.get("name", "")
+        name = r.name
         try:
             if "/" in name:
                 svc, usr = name.split("/", 1)
             else:
-                svc = r["attrs"].get("service", "")
-                usr = r["attrs"].get("username", "")
+                svc = r.attrs.get("service", "")
+                usr = r.attrs.get("username", "")
             if svc and usr:
                 if delete(store, svc, usr):
                     count += 1

@@ -1,4 +1,4 @@
-from ..config import load_config
+from ..context import get_context
 from ..storage import migrate, open_store
 
 
@@ -13,7 +13,8 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     print(f"[{cfg.context_header}]")
     from_mode = args.from_mode or cfg.store_mode
     to_mode = args.to_mode or cfg.store_mode

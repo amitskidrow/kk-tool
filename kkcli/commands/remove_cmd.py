@@ -1,9 +1,9 @@
-import json
 import sys
 
-from ..config import load_config
+from ..context import get_context
 from ..naming import parse_name
-from ..storage import delete, has_item, open_store
+from ..output import result_payload
+from ..storage import delete, has_item
 
 
 def register(subparsers):
@@ -19,29 +19,24 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     header = f"[{cfg.context_header}]"
     if not args.json:
         print(header)
     svc, usr = parse_name(args.name)
-    store = open_store(cfg.namespace, cfg.store_mode)
+    store = ctx.store
     exists = has_item(store, svc, usr)
     if args.dry_run:
         if args.json:
             print(
-                json.dumps(
+                result_payload(
+                    cfg,
                     {
-                        "context": {
-                            "namespace": cfg.namespace,
-                            "env": cfg.default_env,
-                            "store_mode": cfg.store_mode,
-                        },
-                        "result": {
-                            "status": "dry-run",
-                            "name": f"{svc}/{usr}",
-                            "exists": exists,
-                        },
-                    }
+                        "status": "dry-run",
+                        "name": f"{svc}/{usr}",
+                        "exists": exists,
+                    },
                 )
             )
         else:
@@ -52,19 +47,13 @@ def run(args):
         message = "Not found"
         if args.json:
             print(
-                json.dumps(
+                result_payload(
+                    cfg,
                     {
-                        "context": {
-                            "namespace": cfg.namespace,
-                            "env": cfg.default_env,
-                            "store_mode": cfg.store_mode,
-                        },
-                        "result": {
-                            "status": "error",
-                            "error": message,
-                            "name": f"{svc}/{usr}",
-                        },
-                    }
+                        "status": "error",
+                        "error": message,
+                        "name": f"{svc}/{usr}",
+                    },
                 )
             )
         else:
@@ -78,15 +67,9 @@ def run(args):
     delete(store, svc, usr)
     if args.json:
         print(
-            json.dumps(
-                {
-                    "context": {
-                        "namespace": cfg.namespace,
-                        "env": cfg.default_env,
-                        "store_mode": cfg.store_mode,
-                    },
-                    "result": {"status": "ok", "name": f"{svc}/{usr}"},
-                }
+            result_payload(
+                cfg,
+                {"status": "ok", "name": f"{svc}/{usr}"},
             )
         )
     else:

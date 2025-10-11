@@ -1,7 +1,8 @@
 import json
 
-from ..config import load_config
-from ..storage import export_items, open_store
+from ..context import get_context
+from ..output import context_payload
+from ..storage import export_items
 
 
 def register(subparsers):
@@ -14,18 +15,15 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     header = f"[{cfg.context_header}]"
-    store = open_store(cfg.namespace, cfg.store_mode)
+    store = ctx.store
     data = export_items(store, fmt=args.fmt, env=None)
     if args.fmt == "json":
         items = json.loads(data) if data else []
         payload = {
-            "context": {
-                "namespace": cfg.namespace,
-                "env": cfg.default_env,
-                "store_mode": cfg.store_mode,
-            },
+            "context": context_payload(cfg),
             "items": items,
         }
         print(json.dumps(payload))

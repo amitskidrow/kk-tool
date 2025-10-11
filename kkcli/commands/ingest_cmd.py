@@ -1,7 +1,8 @@
 from pathlib import Path
-from ..config import load_config
+
+from ..context import get_context
 from ..envparse import parse_env_file, extract_service_name
-from ..storage import open_store, put, has_item
+from ..storage import has_item, put
 
 
 def register(subparsers):
@@ -15,7 +16,8 @@ def register(subparsers):
 
 
 def run(args):
-    cfg = load_config()
+    ctx = get_context()
+    cfg = ctx.config
     print(f"[{cfg.context_header}]")
     base = Path(args.path)
     if not base.exists():
@@ -38,7 +40,7 @@ def run(args):
     if not env_files:
         print("No .env files found")
         return
-    store = open_store(cfg.namespace, cfg.store_mode)
+    store = ctx.store
     print(f"Found {len(env_files)} dot-env file(s):")
 
     rows = []  # Collect summary rows
@@ -51,15 +53,14 @@ def run(args):
             continue
         for key, value in secrets.items():
             label = f"{service}/{key}"
-            attrs = {"service": service, "username": key, "env": env_tag, "source": "ingest"}
+            attrs = {"env": env_tag, "source": "ingest"}
             if args.dry_run:
                 action = "create" if not has_item(store, service, key) else "update"
                 rows.append({"name": label, "action": f"DRY-{action}", "env": env_tag, "msg": ""})
                 continue
             try:
-                existed = has_item(store, service, key)
-                put(store, service, key, value, attrs)
-                rows.append({"name": label, "action": "updated" if existed else "created", "env": env_tag, "msg": ""})
+                result = put(store, service, key, value, attrs)
+                rows.append({"name": label, "action": result, "env": env_tag, "msg": ""})
             except Exception as e:
                 rows.append({"name": label, "action": "error", "env": env_tag, "msg": str(e)})
 
