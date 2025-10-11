@@ -6,7 +6,7 @@ A lightweight, namespace-aware CLI to safely browse and manage secrets in GNOME 
 
 - **Fixed context**: Namespace is always `ss` and environment tag is always `dev`, keeping agent workflows predictable.
 - **Unified storage**: One storage layer used by CLI and ingestor (Secret Service via DBus).
-- **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default) with optional JSON output for agents.
+- **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default) with optional JSON output for agents; automation must never scrape these masked values.
 - **Controlled retrieval**: `get` masks by default while keeping plaintext access available for trusted operators.
 - **Bulk ingestion**: Ingest dot-env files (`.<name>.env`) recursively from a directory; also supports a single `.env` file path.
 
@@ -96,10 +96,13 @@ This script commits and pushes, installs via the online installer, then verifies
 
 ## For Agentic CLI Tools
 
-The `list` and `search` commands show masked secrets (~35% visible) which allows agents to:
-- Verify that secrets exist
-- Identify the correct service and username parameters for retrieval
-- Work with secrets safely without exposing them
+`kk list` and `kk search` deliberately present masked secrets (~35% visible) so humans can confirm that credentials exist without exposing full values.
+
+**Automation guardrails**
+- Call the Secret Service via a keyring client (e.g. `python -m keyring get <service> <username>`) to retrieve secrets.
+- Do not spawn `kk list` (or any other kk command) inside automation to scrape masked output—the masks exist to prevent leaks to LLM prompts.
+- When a secret is fetched via the keyring, keep it in-memory for the shortest time possible and never log, print, or otherwise display the plaintext.
+- Reserve `kk get` for trusted human operators; agentic tooling should rely on the keyring API path instead.
 
 Example masked output:
 ```
@@ -125,7 +128,8 @@ import keyring
 
 # Retrieve a secret
 password = keyring.get_password('service_name', 'username')
-print(f"Retrieved password: {password}")
+# Use the secret in-memory without logging or printing it
+# e.g., pass it straight into an SDK client initialiser.
 
 # Set a secret
 keyring.set_password('service_name', 'username', 'new_password')
@@ -141,9 +145,19 @@ services = [
     ('coinbase', 'crypto_user3')
 ]
 
+
+def configure_client(service: str, username: str, password: str) -> None:
+    """Placeholder for your own client initialisation code."""
+    # e.g. client.configure(auth_token=password)
+    ...
+
+
 for service, username in services:
     password = keyring.get_password(service, username)
-    print(f"{service}: {password}")
+    if password is None:
+        continue
+    # Hand off the secret to whatever SDK requires it without printing/logging
+    configure_client(service, username, password)
 ```
 
 The `kk` tool complements Python scripts by providing a safe way to browse and verify secrets from the command line without exposing them.

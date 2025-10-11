@@ -8,6 +8,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="kk",
         description="Keyring CLI fixed to namespace 'ss' and environment 'dev' for automation-friendly usage.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Automation guidance:\n"
+            "- Call the Secret Service API with a keyring client (e.g. python-keyring) to fetch secrets.\n"
+            "- Do not spawn `kk list` (or other kk commands) in a subprocess to scrape masked output.\n"
+            "- When you retrieve a secret via the keyring, keep it in-memory and never log or display the plaintext."
+        ),
     )
     sp = p.add_subparsers(dest="cmd")
 
