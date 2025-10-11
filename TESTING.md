@@ -39,10 +39,9 @@ This guide demonstrates core `kk` functionality and ingestion flows.
    ./kk search binance
    ```
 
-7. Retrieve a secret (masked by default, add `--pass ss` to reveal):
+7. Retrieve a secret (masked by default):
    ```bash
    ./kk get binance/BINANCE_API_KEY
-   ./kk get binance/BINANCE_API_KEY --pass ss
    ```
 
 8. Remove a secret (with confirmation prompt unless `--no-confirm` used):

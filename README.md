@@ -7,7 +7,7 @@ A lightweight, namespace-aware CLI to safely browse and manage secrets in GNOME 
 - **Fixed context**: Namespace is always `ss` and environment tag is always `dev`, keeping agent workflows predictable.
 - **Unified storage**: One storage layer used by CLI and ingestor (Secret Service via DBus).
 - **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default) with optional JSON output for agents.
-- **Controlled retrieval**: `get` masks by default and reveals the full secret only when invoked with `--pass ss`.
+- **Controlled retrieval**: `get` masks by default while keeping plaintext access available for trusted operators.
 - **Bulk ingestion**: Ingest dot-env files (`.<name>.env`) recursively from a directory; also supports a single `.env` file path.
 
 ## Installation
@@ -51,9 +51,6 @@ kk search binance
 
 # Get masked secret (default)
 kk get binance/USER1
-
-# Reveal full secret with passphrase
-kk get binance/USER1 --pass ss
 
 # Set or update a secret
 kk set binance/USER1 --value your_secret

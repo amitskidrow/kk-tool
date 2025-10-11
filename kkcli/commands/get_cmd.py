@@ -1,5 +1,6 @@
 import json
 import sys
+from argparse import SUPPRESS
 
 from ..config import load_config
 from ..masking import mask_secret
@@ -12,10 +13,10 @@ _PASS_PHRASE = "ss"
 def register(subparsers):
     p = subparsers.add_parser(
         "get",
-        help="Get a secret from namespace 'ss' (masked unless --pass ss is provided).",
+        help="Get a secret from namespace 'ss' (masked output by default).",
     )
     p.add_argument("name", help="service/username")
-    p.add_argument("--pass", dest="passphrase", default=None, help="Reveal full secret when set to 'ss'.")
+    p.add_argument("--pass", dest="passphrase", default=None, help=SUPPRESS)
     p.add_argument("--json", action="store_true", help="Return machine-readable output.")
     p.set_defaults(func=run)
 
@@ -53,8 +54,6 @@ def run(args):
     full_secret = val
     masked = mask_secret(full_secret, cfg.mask_visible_ratio)
     reveal = args.passphrase == _PASS_PHRASE if args.passphrase is not None else False
-    if args.passphrase is not None and not reveal and not args.json:
-        print("Invalid passphrase; showing masked value.", file=sys.stderr)
     if args.json:
         payload = {
             "context": {
@@ -73,5 +72,3 @@ def run(args):
         return
     output = full_secret if reveal else masked
     print(output)
-    if not reveal:
-        print("(Masked. Use --pass ss to reveal.)")
