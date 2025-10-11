@@ -4,11 +4,10 @@ A lightweight, namespace-aware CLI to safely browse and manage secrets in GNOME 
 
 ## Features
 
-- **Namespaces**: All items are scoped by `kk_ns=<namespace>` (default `ss`).
+- **Fixed context**: Namespace is always `ss` and environment tag is always `dev`, keeping agent workflows predictable.
 - **Unified storage**: One storage layer used by CLI and ingestor (Secret Service via DBus).
-- **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default).
-- **Isolation**: By default only shows items created by `kk` in your namespace.
-- **Direct retrieval**: `get` prints the full secret (no extra confirmation).
+- **Safe browsing**: `list`/`search` show masked secrets (~35% visible by default) with optional JSON output for agents.
+- **Controlled retrieval**: `get` masks by default and reveals the full secret only when invoked with `--pass ss`.
 - **Bulk ingestion**: Ingest dot-env files (`.<name>.env`) recursively from a directory; also supports a single `.env` file path.
 
 ## Installation
@@ -44,17 +43,29 @@ kk --version
 # Show effective context
 kk list
 
+# List as JSON for automations
+kk list --json
+
 # Search (masked)
 kk search binance
 
-# Get full secret
+# Get masked secret (default)
 kk get binance/USER1
+
+# Reveal full secret with passphrase
+kk get binance/USER1 --pass ss
 
 # Set or update a secret
 kk set binance/USER1 --value your_secret
 
+# Preview set without writing (also works with --json)
+kk set binance/USER1 --value your_secret --dry-run
+
 # Remove
-kk remove binance/USER1
+kk remove binance/USER1 --no-confirm
+
+# Dry run removal
+kk remove binance/USER1 --dry-run
 
 # Ingest dot-env files (.*.env) recursively from a directory
 kk ingest credentials/
@@ -65,8 +76,11 @@ kk ingest credentials/ --dry-run
 # Ingest a single .env file
 kk ingest CREDENTIALS/.binance.env
 
-# Clean the namespace/env (destructive; requires explicit yes)
+# Clean the namespace (destructive; requires explicit yes)
 kk clean yes
+
+# Preview what clean would delete
+kk clean --dry-run
 
 ```
 
@@ -143,29 +157,21 @@ The `kk` tool complements Python scripts by providing a safe way to browse and v
 - Single-file mode accepts any `*.env` file path (e.g., `.binance.env` or `binance.env`).
 - The `<name>` prefix becomes the service name (`binance`).
 - Each `KEY=VALUE` pair becomes a separate item with label `<service>/<KEY>`.
-- The effective env tag is global (see config below) and not set per command.
+- Secrets are always tagged with environment `dev`.
 
-## Namespaces and Store Modes
+## Fixed Context
 
-- Default namespace is `ss`. Override with `--ns` or `KK_NAMESPACE` env var.
-- Default store mode is `attribute` (filters by `kk_ns` in the default collection).
-- Optional store mode `collection` uses a dedicated collection `kk:<namespace>` for hard isolation (may prompt to unlock/create).
+`kk` is intentionally opinionated so agents never have to manage configuration:
 
-Config file: `~/.config/kk/config.toml` (values under `[kk]`)
-```
-[kk]
-namespace = "ss"
-store_mode = "attribute"  # or "collection"
-default_env = "dev"
-mask_visible_ratio = 0.35
-```
+- Namespace is hard-coded to `ss`.
+- Environment metadata is always set to `dev`.
+- Store mode defaults to Secret Service attribute filtering.
 
-Environment overrides (global): `KK_NAMESPACE`, `KK_STORE_MODE`, `KK_DEFAULT_ENV`, `KK_MASK_VISIBLE_RATIO`.
-
-Env scoping in commands:
-- `list`, `search`, `export`, `clean` use the configured `default_env` by default.
-- Override with `--env <name>` or show all envs with `--all-envs`.
+Older configuration files and environment variables are ignored; the CLI prints the active context (`ns=ss, mode=attribute, env=dev`) at runtime for clarity.
 
 ## License
 
 MIT
+Automation tips:
+- Append `--json` to `list`, `search`, `get`, `set`, and `remove` for machine-friendly responses (context + result payloads).
+- Use `--dry-run` with mutating commands (`set`, `remove`, `clean`, `ingest`) to preview actions before writing secrets.

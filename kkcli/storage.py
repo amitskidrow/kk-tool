@@ -91,10 +91,12 @@ def put(store: Store, service: str, username: str, secret: str, attrs: Optional[
                 old_attrs = existing.get_attributes() or {}
             except Exception:
                 old_attrs = {}
+            merged_attrs = {k: v for k, v in old_attrs.items() if k not in {"kk_ns", "service", "username", "kk_v", "updated_at"}}
             if "created_at" in old_attrs:
-                a["created_at"] = old_attrs["created_at"]
-            a["updated_at"] = _now_iso()
-            existing.set_attributes(a)
+                merged_attrs["created_at"] = old_attrs["created_at"]
+            merged_attrs.update(a)
+            merged_attrs["updated_at"] = _now_iso()
+            existing.set_attributes(merged_attrs)
             existing.set_secret(secret.encode())
             return
         except Exception:

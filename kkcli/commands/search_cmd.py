@@ -1,22 +1,51 @@
+import json
+
 from ..config import load_config
 from ..masking import mask_secret
 from ..storage import open_store, list_items
 
 
 def register(subparsers):
-    p = subparsers.add_parser("search", help="Search items in namespace (masked)")
+    p = subparsers.add_parser(
+        "search",
+        help="Search secrets in namespace 'ss' (env 'dev'; masked output by default).",
+    )
     p.add_argument("query")
-    p.add_argument("--env", dest="env", default=None, help="Filter by env (overrides config)")
-    p.add_argument("--all-envs", action="store_true", help="Do not filter by env")
+    p.add_argument("--json", action="store_true", help="Return machine-readable output.")
     p.set_defaults(func=run)
 
 
 def run(args):
     cfg = load_config()
-    print(f"[{cfg.context_header}]")
+    header = f"[{cfg.context_header}]"
     store = open_store(cfg.namespace, cfg.store_mode)
-    env_filter = None if args.all_envs else (args.env or cfg.default_env)
-    rows = list_items(store, contains=args.query, env=env_filter)
+    rows = list_items(store, contains=args.query, env=None)
+    if args.json:
+        payload = []
+        for r in rows:
+            masked = mask_secret(r["secret"], cfg.mask_visible_ratio)
+            payload.append(
+                {
+                    "name": r["name"],
+                    "masked_secret": masked,
+                    "attrs": r["attrs"],
+                }
+            )
+        print(
+            json.dumps(
+                {
+                    "context": {
+                        "namespace": cfg.namespace,
+                        "env": cfg.default_env,
+                        "store_mode": cfg.store_mode,
+                    },
+                    "items": payload,
+                    "query": args.query,
+                }
+            )
+        )
+        return
+    print(header)
     print(f"{'Name':<40} {'Secret (masked)'}")
     print("-" * 80)
     for r in rows:

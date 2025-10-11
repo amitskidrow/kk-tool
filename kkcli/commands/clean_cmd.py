@@ -6,25 +6,28 @@ from ..storage import open_store, list_items, delete
 def register(subparsers):
     p = subparsers.add_parser(
         "clean",
-        help="Delete items in current namespace and env (requires 'yes')",
+        help="Delete items in namespace 'ss' (env 'dev'; requires confirmation).",
     )
-    p.add_argument("confirm", nargs="?", help="Type 'yes' to confirm")
-    p.add_argument("--env", dest="env", default=None, help="Filter by env (overrides config)")
-    p.add_argument("--all-envs", action="store_true", help="Do not filter by env (delete across all envs)")
+    p.add_argument("confirm", nargs="?", help="Type 'yes' to confirm destructive delete.")
+    p.add_argument("--dry-run", action="store_true", help="Show what would be deleted without removing secrets.")
     p.set_defaults(func=run)
 
 
 def run(args):
     cfg = load_config()
     print(f"[{cfg.context_header}]")
-    if args.confirm != "yes":
-        print("This will permanently delete items in the namespace.")
-        print("By default only the current env is affected; use --all-envs to delete across all envs.")
-        print("Type: kk clean yes")
-        sys.exit(1)
     store = open_store(cfg.namespace, cfg.store_mode)
-    env_filter = None if args.all_envs else (args.env or cfg.default_env)
-    rows = list_items(store, env=env_filter)
+    rows = list_items(store, env=None)
+    if args.dry_run:
+        print("Dry run — the following items would be deleted:")
+        for r in rows:
+            print(f" - {r['name']}")
+        print(f"Total candidates: {len(rows)}")
+        return
+    if args.confirm != "yes":
+        print("This will permanently delete all secrets in namespace 'ss' (env 'dev').")
+        print("To proceed run: kk clean yes")
+        sys.exit(1)
     count = 0
     for r in rows:
         name = r.get("name", "")
@@ -39,5 +42,4 @@ def run(args):
                     count += 1
         except Exception:
             continue
-    env_label = "ALL" if env_filter is None else env_filter
-    print(f"Deleted {count} item(s) from namespace '{cfg.namespace}' and env '{env_label}'.")
+    print(f"Deleted {count} item(s) from namespace '{cfg.namespace}'.")

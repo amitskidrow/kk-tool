@@ -1,24 +1,23 @@
 from ..config import load_config
-from ..storage import open_store, migrate
+from ..storage import migrate, open_store
 
 
 def register(subparsers):
-    p = subparsers.add_parser("migrate", help="Migrate items between modes/namespaces")
+    p = subparsers.add_parser(
+        "migrate",
+        help="Migrate items between storage modes within namespace 'ss'.",
+    )
     p.add_argument("--from-mode", dest="from_mode", choices=["attribute", "collection"], default=None)
     p.add_argument("--to-mode", dest="to_mode", choices=["attribute", "collection"], default=None)
-    p.add_argument("--from-ns", dest="from_ns", default=None)
-    p.add_argument("--to-ns", dest="to_ns", default=None)
     p.set_defaults(func=run)
 
 
 def run(args):
     cfg = load_config()
-    from_ns = args.from_ns or cfg.namespace
-    to_ns = args.to_ns or cfg.namespace
+    print(f"[{cfg.context_header}]")
     from_mode = args.from_mode or cfg.store_mode
     to_mode = args.to_mode or cfg.store_mode
-    src = open_store(from_ns, from_mode)
-    dst = open_store(to_ns, to_mode)
+    src = open_store(cfg.namespace, from_mode)
+    dst = open_store(cfg.namespace, to_mode)
     moved = migrate(src, dst)
-    print(f"Migrated {moved} items from ns={from_ns},mode={from_mode} to ns={to_ns},mode={to_mode}")
-
+    print(f"Migrated {moved} item(s) in namespace '{cfg.namespace}' from mode={from_mode} to mode={to_mode}")

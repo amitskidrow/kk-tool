@@ -7,7 +7,7 @@ from ..storage import open_store, put, has_item
 def register(subparsers):
     p = subparsers.add_parser(
         "ingest",
-        help="Ingest dot-env files: directory scan (.*.env) or single .env file",
+        help="Ingest dot-env files into namespace 'ss' (env 'dev').",
     )
     p.add_argument("path", nargs="?", default=".")
     p.add_argument("--dry-run", action="store_true")
