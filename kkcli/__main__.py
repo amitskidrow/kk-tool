@@ -13,7 +13,14 @@ def build_parser() -> argparse.ArgumentParser:
             "Automation guidance:\n"
             "- Call the Secret Service API with a keyring client (e.g. python-keyring) to fetch secrets.\n"
             "- Do not spawn `kk list` (or other kk commands) in a subprocess to scrape masked output.\n"
-            "- When you retrieve a secret via the keyring, keep it in-memory and never log or display the plaintext."
+            "- When you retrieve a secret via the keyring, keep it in-memory and never log or display the plaintext.\n\n"
+            "Python example (using kk's storage helpers):\n"
+            "  from kkcli.storage import open_store, get\n"
+            "  store = open_store('ss', 'attribute')  # namespace='ss', mode='attribute'\n"
+            "  nats_url = get(store, 'nats', 'NATS_URL')\n"
+            "  redis_url = get(store, 'redis', 'REDIS_URL')\n"
+            "  print(nats_url)\n"
+            "  print(redis_url)\n"
         ),
     )
     sp = p.add_subparsers(dest="cmd")

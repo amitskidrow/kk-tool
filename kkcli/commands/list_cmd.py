@@ -34,6 +34,12 @@ def run(args):
         "NOTE: Masked output is provided for manual inspection only.",
         "Agents must call the Secret Service/keyring API to retrieve secrets instead of scraping kk output.",
         "Handle retrieved secrets in-memory and never log or display plaintext values.",
+        "",
+        "Python example (using kk's storage helpers):",
+        "  from kkcli.storage import open_store, get",
+        "  store = open_store('ss', 'attribute')  # namespace='ss', mode='attribute'",
+        "  print(get(store, 'nats', 'NATS_URL'))",
+        "  print(get(store, 'redis', 'REDIS_URL'))",
     ]
     print("\n".join(note_lines))
     print()
