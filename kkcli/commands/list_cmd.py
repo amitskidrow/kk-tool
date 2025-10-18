@@ -31,15 +31,23 @@ def run(args):
         print(masked_items_payload(cfg, rows))
         return
     note_lines = [
-        "NOTE: Masked output is provided for manual inspection only.",
-        "Agents must call the Secret Service/keyring API to retrieve secrets instead of scraping kk output.",
-        "Handle retrieved secrets in-memory and never log or display plaintext values.",
+        "This CLI shows masked secrets from your system keyring (Secret Service).",
+        "Automations should fetch values directly via python-keyring; do not scrape kk output.",
         "",
-        "Python example (using kk's storage helpers):",
-        "  from kkcli.storage import open_store, get",
-        "  store = open_store('ss', 'attribute')  # namespace='ss', mode='attribute'",
-        "  print(get(store, 'nats', 'NATS_URL'))",
-        "  print(get(store, 'redis', 'REDIS_URL'))",
+        "DO:",
+        "- Use keyring.get_password(<service>, <username>) to retrieve secrets.",
+        "- Keep secrets in-memory and redact/mask logs.",
+        "DON'T:",
+        "- Print plaintext secrets or rely on kk's masked output in code.",
+        "",
+        "Install/run tips:",
+        "- uv (ephemeral): uv run --with keyring --with secretstorage python -c \"import keyring; print(keyring.get_password('nats','NATS_URL'))\"",
+        "- pip: pip install keyring secretstorage",
+        "",
+        "Python example (python-keyring):",
+        "  import keyring",
+        "  print(keyring.get_password('nats', 'NATS_URL'))",
+        "  print(keyring.get_password('redis', 'REDIS_URL'))",
     ]
     print("\n".join(note_lines))
     print()
