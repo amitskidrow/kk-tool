@@ -33,6 +33,23 @@ Local development: you can also run from the repo with `./kk`.
 
 ## Usage
 
+### New: `kk code <selector>`
+
+Return a short description and a ready-to-paste Python snippet that uses **python-keyring** to fetch the credential(s) selected by index (from `kk list`) or by explicit label `service/username`.
+
+Examples:
+
+```bash
+kk list
+kk code 1
+kk code anthropic/ANTHROPIC_API_KEY
+kk code 3,4 --json
+kk code nats/NATS_URL --quiet
+kk code redis/REDIS_URL --emit-markers
+```
+
+
+
 ```bash
 # Show help
 kk --help

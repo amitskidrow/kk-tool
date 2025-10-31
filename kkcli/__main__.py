@@ -32,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = p.add_subparsers(dest="cmd")
 
     # Register subcommands
-    from .commands import list_cmd, search_cmd, get_cmd, set_cmd, remove_cmd, ingest_cmd, export_cmd, migrate_cmd, doctor_cmd, clean_cmd
+    from .commands import list_cmd, search_cmd, get_cmd, set_cmd, remove_cmd, ingest_cmd, export_cmd, migrate_cmd, doctor_cmd, clean_cmd, code_cmd
     list_cmd.register(sp)
     search_cmd.register(sp)
     get_cmd.register(sp)
@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_cmd.register(sp)
     doctor_cmd.register(sp)
     clean_cmd.register(sp)
+    code_cmd.register(sp)
 
     p.add_argument(
         "--version",

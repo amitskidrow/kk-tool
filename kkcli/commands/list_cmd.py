@@ -51,5 +51,9 @@ def run(args):
     ]
     print("\n".join(note_lines))
     print()
+    # Enumerated summary for agentic selection
+    for i, r in enumerate(rows, start=1):
+        print(f"{i}) {r.name}")
+    print()
     print(header)
     print_masked_table(cfg, rows)

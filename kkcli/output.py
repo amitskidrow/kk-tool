@@ -23,14 +23,14 @@ def masked_items_payload(
     *,
     query: Optional[str] = None,
 ) -> str:
-    items = [
-        {
+    items = []
+    for idx, row in enumerate(rows, start=1):
+        items.append({
+            "index": idx,
             "name": row.name,
             "masked_secret": row.masked_secret(cfg.mask_visible_ratio),
             "attrs": row.attrs,
-        }
-        for row in rows
-    ]
+        })
     payload = {"context": context_payload(cfg), "items": items}
     if query is not None:
         payload["query"] = query
